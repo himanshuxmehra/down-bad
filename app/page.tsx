@@ -1,101 +1,134 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+import Head from "next/head";
+import { Download, Youtube } from "lucide-react";
+
+interface DownloadResponse {
+  url: string;
+  title: string;
+  thumbnail: string;
+  formats: {
+    quality: string;
+    url: string;
+    container: string;
+  }[];
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [videoInfo, setVideoInfo] = useState<DownloadResponse | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const isValidYouTubeUrl = (url: string) => {
+    const regex =
+      /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/).+/;
+    return regex.test(url);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isValidYouTubeUrl(url)) {
+      setError("Please enter a valid YouTube URL");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/youtube", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch video information");
+      }
+
+      const data = await response.json();
+      setVideoInfo(data);
+    } catch (err) {
+      setError("Failed to get video information. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      <Head>
+        <title>YouTube Video Downloader</title>
+        <meta name="description" content="Download YouTube videos and shorts" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-center mb-8 space-x-2">
+            <Youtube className="w-8 h-8 text-red-500" />
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
+              YouTube Downloader
+            </h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mb-8">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="Paste YouTube URL here..."
+                className="flex-1 p-3 border border-gray-700 rounded-lg bg-gray-800 text-gray-100 focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder-gray-500"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 duration-200 ease-in-out"
+              >
+                {loading ? "Loading..." : "Download"}
+              </button>
+            </div>
+            {error && <p className="mt-2 text-red-400">{error}</p>}
+          </form>
+
+          {videoInfo && (
+            <div className="bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700">
+              <div className="flex flex-col sm:flex-row gap-6">
+                <img
+                  src={videoInfo.thumbnail}
+                  alt={videoInfo.title}
+                  className="w-full sm:w-48 h-auto rounded-lg shadow-md"
+                />
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-4 text-gray-100">
+                    {videoInfo.title}
+                  </h2>
+                  <div className="space-y-3">
+                    {videoInfo.formats.map((format, index) => (
+                      <a
+                        key={index}
+                        href={format.url}
+                        download
+                        className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 transition-all p-3 rounded-lg group transform hover:scale-102 duration-200 ease-in-out"
+                      >
+                        <Download className="w-5 h-5 text-red-400 group-hover:text-red-300" />
+                        <span className="text-gray-200 group-hover:text-white">
+                          Download {format.quality} ({format.container})
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
