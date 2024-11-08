@@ -1,39 +1,34 @@
-import { NextResponse } from "next/server";
-import ytdl from "ytdl-core";
+import { NextRequest, NextResponse } from 'next/server';
+import ytdl from '@distube/ytdl-core';
 
-export async function POST(req: Request) {
-  // console.log(req);
-  // if (req.method !== "POST") {
-  //   return res.status(405).json({ message: "Method not allowed" });
-  // }
-  const body = await req.json();
-  const { url } = body;
-
-  if (!url) {
-    return new NextResponse("URL is required", { status: 400 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
+    const { url } = await request.json();
+
+    if (!url) {
+      return NextResponse.json(
+        { message: 'URL is required' },
+        { status: 400 }
+      );
+    }
+
     const info = await ytdl.getInfo(url);
+   console.log(info) 
+    // Filter and sort formats by quality
+    const thumbnail = info.videoDetails.thumbnails
+      .sort((a, b) => (b.width || 0) - (a.width || 0))[0].url;
 
-    const formats = ytdl
-      .filterFormats(info.formats, "videoandaudio")
-      .map((format) => ({
-        quality: format.qualityLabel,
-        url: format.url,
-        container: format.container,
-      }));
-
-    const res = {
+    return NextResponse.json({
       url: url,
       title: info.videoDetails.title,
-      thumbnail: info.videoDetails.thumbnails[0].url,
-      formats: formats,
-    };
-
-    return NextResponse.json(res);
+      thumbnail,
+      formats: info.formats,
+    });
   } catch (error) {
-    console.error("Error downloading video:", error);
-    return new NextResponse("Failed to process video", { status: 500 });
+    console.error('Error getting video info:', error);
+    return NextResponse.json(
+      { message: 'Failed to process video' },
+      { status: 500 }
+    );
   }
 }
